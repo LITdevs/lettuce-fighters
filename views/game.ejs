@@ -34,6 +34,7 @@
             </div>
             <div class="userBar">
                 <div class="card flex flex-row justify-between">
+                    <% if (user === null || user.alive) {%>
                     <div class="health-display text-3xl align-middle">
                         <i class="fa-solid fa-heart<%=user?.health >= 1 ? "" : "-broken"%>"></i>
                         <i class="fa-solid fa-heart<%=user?.health >= 2 ? "" : "-broken"%>"></i>
@@ -42,6 +43,12 @@
                     <div class="lettuce-display">
                         <img src="/lettuce.png" alt="A lettuce" class="w-10 inline-block"><span class="font-bold text-xl"> x <span id="lettuceCount"><%=user?.actions || 0%></span></span>
                     </div>
+                    <% } else { %>
+                        <span>Choose who you would like to help: </span>
+                        <select id="supremeCourtSelector">
+
+                        </select>
+                    <% } %>
                     <div class="player-name-display text-xl font-bold align-middle">
                         Playing as <%=user?.username || "Nobody! You are a spectator."%>
                     </div>
@@ -66,6 +73,13 @@
         </div>
         <script src="https://cdn.jsdelivr.net/npm/p5@1.5.0/lib/p5.min.js"></script>
         <script src="/socket.io/socket.io.js"></script>
+        <% if (user && !user.alive) { %>
+        <script>
+            document.getElementById("supremeCourtSelector").addEventListener("change", function() {
+                socket.emit("supremeCourt", this.value);
+            })
+        </script>
+        <% %>
         <script>
             if (!getCookie("tutorial")) {
                 document.querySelector("#tutorial").classList.remove("hidden");
