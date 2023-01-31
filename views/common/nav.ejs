@@ -23,10 +23,13 @@
 		return "";
 	}
 	const dateFormatterRegex = /<\$date:[a-zA-Z0-9 :+()]+>/gm
+	const dateFormatterRegex_alt = /&lt;\$date:[a-zA-Z0-9 :+()]+&gt;/gm
 </script>
 
 <div class="nav">
     <div>
-        <span class="font-bold">Lettuce Fighters</span>
+        <span class="font-bold text-xl ml-4">Lettuce Fighters</span>
+        <img src="/fighter.png" class="w-8 inline-block" alt="Lettuce with arms and legs and angry face">
+        <img src="/fighter.png" style="transform: scaleX(-1)" class="w-8 inline-block" alt="Lettuce with arms and legs and angry face">
     </div>
 </div>

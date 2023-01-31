@@ -1,17 +1,25 @@
-import {Types} from "mongoose";
-
 const PawnSchema = {
     discordId: String,
+    username: String,
     position: Object,
     alive: {type: Boolean, default: true},
-    diedAt: Date
+    health: {type: Number, default: 3},
+    actions: {type: Number, default: 1},
+    tint: Object,
+    diedAt: Date,
+    killedBy: String,
+    vote: String
 }
 
 interface IPawn {
     discordId: string,
+    username: string,
     position: {x: number, y: number},
     alive: boolean,
-    diedAt: Date
+    tint: {r: number, g: number, b: number},
+    diedAt: Date,
+    killedBy: string,
+    vote: string
 }
 
 export {PawnSchema, IPawn}

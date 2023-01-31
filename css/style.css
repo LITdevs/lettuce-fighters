@@ -9,6 +9,7 @@ html, body {
 body {
     display: flex;
     flex-direction: column;
+    @apply bg-primary text-light;
 }
 
 .content {
@@ -16,7 +17,7 @@ body {
 }
 
 .nav {
-    @apply flex flex-row justify-between bg-gray-900 text-white w-full h-12 items-center;
+    @apply flex flex-row justify-between bg-accent text-light w-full h-12 items-center;
 }
 
 .btn {
@@ -39,4 +40,25 @@ body {
 
 .input-invalid {
     @apply border-2 border-red-500 !important;
+}
+
+.card {
+    @apply bg-secondary text-light rounded-[10px] shadow-lg p-4 m-2;
+}
+
+.card-center {
+    @apply card;
+    @apply mx-auto;
+}
+
+.fa-heart {
+    @apply text-hp;
+}
+
+.fa-heart-broken {
+    @apply text-spent;
+}
+
+.event {
+    @apply bg-tertiary text-light rounded-[10px] shadow-lg p-1 m-2;
 }

@@ -7,11 +7,22 @@
     </head>
     <body>
         <%- include("common/nav.ejs"); %>
-        <div class="content">
-            Hello<br>
-            Log in with Discord to prove you are a true lettuce fighter.<br>
-            <button class="btn">Log in with Discord</button>
+        <div class="content text-center">
+            <div class="card-center max-w-screen-md">
+
+                <span class="font-bold align-top">Participant</span><br>
+                <a href="/auth/login"><button class="btn">Log in</button></a>
+
+                <hr class="my-2">
+
+                <span class="font-bold align-top">Spectator</span><br>
+                <a href="/game"><button class="btn">Spectate</button></a>
+
+            </div>
         </div>
+        <script>
+            if (window.location.href.includes("loginFailure=true")) alert("Login failed. Are you really a participant?");
+        </script>
         <%- include("common/footer.ejs"); %>
     </body>
 </html>

@@ -1,3 +1,5 @@
+import {getPawn} from "../databaseManager";
+
 /**
  * Check if request is authenticated
  * Express middleware
@@ -5,11 +7,15 @@
  * @param res
  * @param next
  */
-export default function (req, res, next) {
+export default async function (req, res, next) {
     if (isAuthenticated(req)) {
+        let Pawn = getPawn();
+        let pawn = await Pawn.findOne({discordId: req.user.discordId})
+        res.locals.user = pawn;
         return next();
     }
-    res.redirect("/");
+    if (!req.originalUrl.startsWith("/game")) return res.redirect("/");
+    next()
 }
 
 /**

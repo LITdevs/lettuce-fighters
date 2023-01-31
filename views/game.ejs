@@ -1,0 +1,510 @@
+<%
+ if (typeof user === "undefined") user = null;
+ %>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title><%= title %></title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="/css/style.css">
+    </head>
+    <body>
+        <%- include("common/nav.ejs", { user }); %>
+        <div class="content m-2">
+            <div class="game-container md:flex md:flex-row">
+                <div class="card w-full h-[48rem] grid-container" id="grid-container">
+                    <noscript>
+                        You absolutely need JavaScript to play this game.<br>
+                        There is no way around it.
+                    </noscript>
+                    <div id="tutorial" class="card fixed top-1/3 left-1/2 text-center hidden">
+                        <span class="font-bold text-xl text-center">Welcome to Lettuce Fighters!</span><br>
+                        <p>Drag to pan around the playing field</p>
+                        <p>Scroll (or pinch) to zoom</p>
+                        <p>Click a pawn or tile to interact</p>
+                        <button onclick="this.parentNode.remove();setCookie('tutorial', true)" class="btn">Ok, understood</button>
+                    </div>
+                </div>
+                <div class="card w-96 text-center h-[48rem] overflow-y-hidden">
+                    <span class="font-bold">Recent events</span>
+                    <div class="eventContainer">
+
+                    </div>
+                </div>
+            </div>
+            <div class="userBar">
+                <div class="card flex flex-row justify-between">
+                    <div class="health-display text-3xl align-middle">
+                        <i class="fa-solid fa-heart<%=user?.health >= 1 ? "" : "-broken"%>"></i>
+                        <i class="fa-solid fa-heart<%=user?.health >= 2 ? "" : "-broken"%>"></i>
+                        <i class="fa-solid fa-heart<%=user?.health >= 3 ? "" : "-broken"%>"></i>
+                    </div>
+                    <div class="lettuce-display">
+                        <img src="/lettuce.png" alt="A lettuce" class="w-10 inline-block"><span class="font-bold text-xl"> x <span id="lettuceCount"><%=user?.actions || 0%></span></span>
+                    </div>
+                    <div class="player-name-display text-xl font-bold align-middle">
+                        Playing as <%=user?.username || "Nobody! You are a spectator."%>
+                    </div>
+                </div>
+            </div>
+            <div id="contextMenu" class="fixed top-0 right-0 z-10 bg-tertiary rounded-md shadow-lg w-56 hidden">
+                <a id="moveAction" onclick="moveHere();this.parentNode.classList.add('hidden')" href="#" class="block p-2 hover:bg-secondary rounded-md">
+                    Move here
+                </a>
+                <a id="giveAction" onclick="giveTo();this.parentNode.classList.add('hidden')" href="#" class="block p-2 hover:bg-secondary rounded-md">
+                    Give lettuce to <span id="giveTo">Lettuce Gods</span>
+                </a>
+                <a id="attackAction" onclick="attackPawn();this.parentNode.classList.add('hidden')" href="#" class="block p-2 hover:bg-secondary rounded-md">
+                    Attack <span id="attack">Lettuce Gods</span>
+                </a>
+                <a href="#" onclick="this.parentNode.classList.add('hidden')" class="block p-2 hover:bg-secondary rounded-md">
+                    Cancel
+                </a>
+                <span id="coordinates">X: 0, Y:0</span>
+            </div>
+
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/p5@1.5.0/lib/p5.min.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+            if (!getCookie("tutorial")) {
+                document.querySelector("#tutorial").classList.remove("hidden");
+            }
+
+            let socket = io();
+	        let gridSize = 10;
+	        let numCellsX = Number("<%=gridWidth%>");
+	        let numCellsY = Number("<%=gridHeight%>");
+	        let zoom = 1;
+	        let x = 0;
+	        let y = 0;
+	        let isDragging = false;
+	        let startX;
+	        let startY;
+	        let startDistance;
+	        let currentDistance;
+			let shittyRangeDraw = false;
+
+	        document.querySelector("#grid-container").addEventListener("mousewheel", function(e) {
+		        e.preventDefault();
+	        })
+	        document.querySelector("#grid-container").addEventListener("DOMMouseScroll", function(e) {
+		        e.preventDefault();
+	        })
+	        document.querySelector("#grid-container").addEventListener("MozMousePixelScroll", function(e) {
+		        e.preventDefault();
+	        })
+
+            let pawns = []
+
+            let pawnImage
+            let pawnImageDead
+	        function setup() {
+		        let gridContainer = document.getElementById("grid-container");
+		        let canvas = createCanvas(gridContainer.clientWidth, gridContainer.clientHeight - 30);
+		        canvas.parent("grid-container");
+		        background("#2E2E2E");
+		        pawnImage = loadImage("/fighter.png");
+		        pawnImageDead = loadImage("/fighter_dead.png");
+		        fetch("/api/pawns")
+			        .then(res => res.json())
+			        .then(data => {
+				        data.forEach(pawn => {
+					        console.log(pawn)
+					        addPawn(pawn)
+				        })
+			        })
+                fetch("/api/events")
+                    .then(res => res.json())
+                    .then(data => {
+						data.reverse();
+                        data.forEach(event => {
+                            console.log(event)
+                            addEvent(event)
+                        })
+                    })
+	        }
+
+
+	        function draw() {
+		        cursor('/cursor.png');
+				if (zoom > 20) zoom = 20;
+		        let showTooltip = false;
+		        let tooltipPawn = {};
+		        background("#2E2E2E");
+		        translate(x, y);
+		        scale(zoom);
+		        stroke("#D1D1D1");
+		        strokeWeight(1 / zoom);
+
+		        let aspectRatio = numCellsX / numCellsY;
+		        let gridWidth = numCellsX * gridSize;
+		        let gridHeight = numCellsY * gridSize;
+		        let gridX, gridY, lineSpacingX, lineSpacingY;
+
+		        // Determine the smaller dimension and adjust grid size and position accordingly
+		        if (width / aspectRatio <= height) {
+			        gridWidth = width;
+			        gridX = 0;
+			        lineSpacingX = gridWidth / numCellsX;
+			        gridHeight = gridWidth / aspectRatio;
+			        gridY = (height - gridHeight) / 2;
+			        lineSpacingY = gridHeight / numCellsY;
+		        } else {
+			        gridHeight = height;
+			        gridY = 0;
+			        lineSpacingY = gridHeight / numCellsY;
+			        gridWidth = gridHeight * aspectRatio;
+			        gridX = (width - gridWidth) / 2;
+			        lineSpacingX = gridWidth / numCellsX;
+		        }
+
+		        // Draw horizontal lines
+		        for (let i = 0; i <= numCellsX; i++) {
+			        line(i * lineSpacingX + gridX, gridY, i * lineSpacingX + gridX, gridHeight + gridY);
+		        }
+		        // Draw vertical lines
+		        for (let i = 0; i <= numCellsY; i++) {
+			        line(gridX, i * lineSpacingY + gridY, gridWidth + gridX, i * lineSpacingY + gridY);
+		        }
+
+				let tooltipX = 0;
+				let tooltipY = 0;
+
+		        pawns.forEach(pawn => {
+					if (pawn.discordId === "<%=user?.discordId%>") {
+						if (!pawn.alive) {
+							stroke("#FF0000");
+							fill("#FF0000");
+							textSize(48);
+							textAlign(CENTER, CENTER);
+							text("You are dead", width / 2, -10);
+							textAlign(LEFT, BASELINE);
+                        }
+						// Update UI
+                        document.querySelector("#lettuceCount").innerHTML = pawn.actions;
+						document.querySelector(".health-display").innerHTML = `
+						<i class="fa-solid fa-heart${pawn.health >= 1 ? "" : "-broken"}"></i>
+                        <i class="fa-solid fa-heart${pawn.health >= 2 ? "" : "-broken"}"></i>
+                        <i class="fa-solid fa-heart${pawn.health >= 3 ? "" : "-broken"}"></i>
+						`
+                        if (shittyRangeDraw) {
+	                        // Loop through all tiles and check if they are in range
+	                        for (let i = 0; i < numCellsX; i++) {
+		                        for (let j = 0; j < numCellsY; j++) {
+			                        if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 7.5) {
+				                        fill("#FFFFFF00")
+				                        stroke("#00FF00")
+				                        rect(gridX + (i * gridWidth / numCellsX),
+					                        gridY + (j * gridHeight / numCellsY),
+					                        gridWidth / numCellsX,
+					                        gridHeight / numCellsY);
+			                        }
+			                        if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 4.25) {
+				                        fill("#FFFFFF00")
+				                        stroke("#FF0000")
+				                        rect(gridX + (i * gridWidth / numCellsX),
+					                        gridY + (j * gridHeight / numCellsY),
+					                        gridWidth / numCellsX,
+					                        gridHeight / numCellsY);
+			                        }
+			                        if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 1.5) {
+				                        fill("#FFFFFF00")
+				                        stroke("#0000FF")
+				                        rect(gridX + (i * gridWidth / numCellsX),
+					                        gridY + (j * gridHeight / numCellsY),
+					                        gridWidth / numCellsX,
+					                        gridHeight / numCellsY);
+			                        }
+		                        }
+	                        }
+                        }
+					}
+			        renderPawn(pawn)
+			        fill("#FFFFFF00")
+			        stroke("#FF0000")
+			        /*rect(gridX + (pawn.position.x * gridWidth / numCellsX),
+                        gridY + (pawn.position.y * gridHeight / numCellsY),
+				        gridWidth / numCellsX,
+				        gridHeight / numCellsY);*/
+			        const adjustedX = (mouseX - x) / zoom;
+			        const adjustedY = (mouseY - y) / zoom;
+			        if (adjustedX >= (gridX + (pawn.position.x * gridWidth / numCellsX)) &&
+				        adjustedX <= (gridX + (pawn.position.x * gridWidth / numCellsX)) + (gridWidth / numCellsX) &&
+				        adjustedY >= (gridY + (pawn.position.y * gridHeight / numCellsY)) &&
+				        adjustedY <= gridY + (pawn.position.y * gridHeight / numCellsY) + (gridHeight / numCellsY)) {
+				        // Draw rect at hitbox
+				        if (!pawn.username) return;
+				        /*console.log("Mouse is over pawn")
+				        console.log(pawn)*/
+                        showTooltip = true;
+				        tooltipPawn = pawn;
+				        tooltipX = gridX + (pawn.position.x * gridWidth) / numCellsX + gridSize / zoom;
+				        tooltipY = gridY + (pawn.position.y * gridHeight) / numCellsY + gridSize / zoom + gridSize;
+			        }
+		        });
+
+		        if (showTooltip) {
+			        fill("#545454");
+			        stroke("#545454");
+			        strokeWeight(1);
+			        let xPos = (mouseX + 15 - x) / zoom;
+			        let yPos = (mouseY + 15 - y) / zoom;
+			        rect(xPos, yPos, Math.max(120 / zoom, tooltipPawn.username.length * 10), 50 / zoom, 2 / zoom);
+			        fill("#D1D1D1");
+					textSize(12 / zoom);
+			        text(tooltipPawn.username, xPos + 5 / zoom, yPos + 15 / zoom);
+					if (tooltipPawn.alive) {
+						text(`${tooltipPawn.health} HP`, xPos + 5 / zoom, yPos + 30 / zoom);
+						text(`${tooltipPawn.actions} Lettuce`, xPos + 5 / zoom, yPos + 45 / zoom);
+                    } else {
+						text(`Dead for ${((Date.now() - new Date(tooltipPawn.diedAt).getTime()) / 1000 / 60 / 60).toFixed(2)} hours`, xPos + 5 / zoom, yPos + 30 / zoom);
+						text(`Killed by ${pawns.find(p => p.discordId == tooltipPawn.killedBy).username}`, xPos + 5 / zoom, yPos + 45 / zoom);
+					}
+		        }
+	        }
+
+			function addPawn(pawn) {
+				pawns.push(pawn)
+				renderPawn(pawn)
+            }
+
+	        function renderPawn(pawn) {
+		        let aspectRatio = numCellsX / numCellsY;
+		        let gridWidth = Math.min(width, height * aspectRatio);
+		        let gridHeight = gridWidth / aspectRatio;
+		        let gridX = (width - gridWidth) / 2;
+		        let gridY = (height - gridHeight) / 2;
+
+		        let imageX = gridX + (pawn.position.x * gridWidth / numCellsX);
+		        let imageY = gridY + (pawn.position.y * gridHeight / numCellsY);
+		        let imageWidth = gridWidth / numCellsX;
+		        let imageHeight = gridHeight / numCellsY;
+                tint(pawn.tint.r, pawn.tint.g, pawn.tint.b);
+		        image(pawn.alive ? pawnImage : pawnImageDead, imageX, imageY, imageWidth, imageHeight);
+	        }
+
+	        function mouseWheel(event) {
+				if (!event.srcElement.classList.contains("p5Canvas")) return;
+		        let beforeX = (mouseX - x) / zoom;
+		        let beforeY = (mouseY - y) / zoom;
+		        if (event.delta > 0) {
+			        zoom /= 1.1;
+		        } else {
+					if (zoom *= 1.1 < 20) zoom *= 1.1;
+		        }
+		        x = mouseX - beforeX * zoom;
+		        y = mouseY - beforeY * zoom;
+	        }
+
+			let actionData = {}
+
+	        function mousePressed(event) {
+				if (event.srcElement.parentNode.id === "contextMenu" || event.srcElement.id === "contextMenu") return false;
+		        isDragging = true;
+		        startX = mouseX;
+		        startY = mouseY;
+
+		        const adjustedX = (mouseX - x) / zoom;
+		        const adjustedY = (mouseY - y) / zoom;
+
+		        let aspectRatio = numCellsX / numCellsY;
+
+				let gridWidth
+                let gridX
+                let gridHeight
+                let gridY
+
+		        // Determine the smaller dimension and adjust grid size and position accordingly
+		        if (width / aspectRatio <= height) {
+			        gridWidth = width;
+			        gridX = 0;
+			        gridHeight = gridWidth / aspectRatio;
+			        gridY = (height - gridHeight) / 2;
+		        } else {
+			        gridHeight = height;
+			        gridY = 0;
+			        gridWidth = gridHeight * aspectRatio;
+			        gridX = (width - gridWidth) / 2;
+		        }
+
+		        let tileX = floor((adjustedX - gridX) / (gridWidth / numCellsX));
+		        let tileY = floor((adjustedY - gridY) / (gridHeight / numCellsY));
+
+				let pawn = pawns.find(pawn => pawn.discordId === "<%=user?.discordId%>")
+                if (!pawn) return;
+
+				let diffX = tileX - pawn.position.x;
+				let diffY = tileY - pawn.position.y;
+				let distance = Math.sqrt(diffX * diffX + diffY * diffY);
+
+                let possibleActions = [];
+
+				console.log(distance)
+				console.log("Clicked on tile " + tileX + ", " + tileY);
+
+				if (tileX < 0 || tileX >= numCellsX || tileY < 0 || tileY >= numCellsY) return;
+
+				let occupier = pawns.find(pawn => pawn.position.x === tileX && pawn.position.y === tileY);
+				if (occupier && occupier.discordId === pawn.discordId) return;
+				if (!occupier && distance <= 1.5) possibleActions.push("move");
+		        if (occupier && occupier.alive && distance <= 4.25) possibleActions.push("attack");
+		        if (occupier && occupier.alive && distance <= 7.5) possibleActions.push("give");
+				if (pawn.actions === 0) possibleActions = [];
+				console.log(possibleActions)
+		        document.querySelector("#contextMenu").classList.remove("hidden");
+                document.querySelector("#contextMenu").style.left = mouseX + 50 + "px";
+                document.querySelector("#contextMenu").style.top = mouseY + 100 + "px";
+				document.querySelector("#coordinates").innerText = `X: ${tileX}, Y: ${tileY}`;
+
+				actionData.position = {x: tileX, y: tileY};
+				actionData.targetPawnId = occupier?.discordId;
+
+				if (occupier) {
+					document.querySelector("#giveTo").innerText = occupier.username;
+					document.querySelector("#attack").innerText = occupier.username;
+                }
+
+		        possibleActions.includes("move")
+			        ? document.querySelector("#moveAction").classList.remove("hidden")
+			        : document.querySelector("#moveAction").classList.add("hidden");
+		        possibleActions.includes("give")
+			        ? document.querySelector("#giveAction").classList.remove("hidden")
+			        : document.querySelector("#giveAction").classList.add("hidden");
+		        possibleActions.includes("attack")
+			        ? document.querySelector("#attackAction").classList.remove("hidden")
+			        : document.querySelector("#attackAction").classList.add("hidden");
+
+                /*
+                if (occupier && occupier.alive)  {
+					socket.emit("give", occupier.discordId);
+					return console.log("Cannot move to occupied tile")
+				}
+
+				let newPawn = {
+                    ...pawn,
+                    position: {
+                        x: tileX,
+                        y: tileY
+                    }
+                }
+		        socket.emit("move", newPawn);
+		        */
+	        }
+
+	        function mouseReleased() {
+		        isDragging = false;
+	        }
+
+			function touchStarted(event) {
+				console.log(event)
+				if (!event.srcElement.classList.contains("p5Canvas")) return;
+				if (event.touches.length >= 2) {
+					const touch1 = event.touches[0];
+					const touch2 = event.touches[1];
+					const xDiff = touch1.clientX - touch2.clientX;
+					const yDiff = touch1.clientY - touch2.clientY;
+					startDistance = Math.sqrt(xDiff * xDiff + yDiff * yDiff);
+				} else {
+					mousePressed(event);
+                }
+			}
+
+			function touchEnded() {
+				mouseReleased();
+			}
+
+			function touchMoved(event) {
+				if (!event.srcElement.classList.contains("p5Canvas")) return;
+				if (event.touches.length >= 2) {
+					let beforeX = (mouseX - x) / zoom;
+					let beforeY = (mouseY - y) / zoom;
+					const touch1 = event.touches[0];
+					const touch2 = event.touches[1];
+					const xDiff = touch1.clientX - touch2.clientX;
+					const yDiff = touch1.clientY - touch2.clientY;
+					currentDistance = Math.sqrt(xDiff * xDiff + yDiff * yDiff);
+
+					const zoomDiff = currentDistance / startDistance;
+					zoom = zoom * zoomDiff;
+
+					startDistance = currentDistance;
+					x = mouseX - beforeX * zoom;
+					y = mouseY - beforeY * zoom;
+
+					redraw();
+				} else {
+					mouseDragged();
+                }
+				return false;
+			}
+
+	        function mouseDragged() {
+		        if (isDragging) {
+			        x += (mouseX - startX);
+			        y += (mouseY - startY);
+			        startX = mouseX;
+			        startY = mouseY;
+		        }
+	        }
+
+			socket.on("move", (newPawn) => {
+				console.log("move", newPawn)
+				let oldPawn = pawns.find(pawn => pawn.discordId === newPawn.discordId);
+                if (oldPawn) {
+					pawns = pawns.filter(pawn => pawn.discordId !== newPawn.discordId);
+                    pawns.push(newPawn);
+                } else {
+					// This should never happen
+                    // But idk divine intervention
+                    addPawn(newPawn);
+                }
+            });
+
+            socket.on("attack", eventData => {
+	            let attacker = eventData.attacker
+	            let attackedPawn = eventData.attackedPawn
+	            pawns = pawns.filter(pawn => pawn.discordId !== attackedPawn.discordId && pawn.discordId !== attacker.discordId);
+	            pawns.push(attacker);
+	            pawns.push(attackedPawn);
+            })
+
+            socket.on("give", eventData => {
+	            let giverPawn = eventData.giverPawn
+	            let giveToPawn = eventData.giveToPawn
+	            pawns = pawns.filter(pawn => pawn.discordId !== giveToPawn.discordId && pawn.discordId !== giverPawn.discordId);
+	            pawns.push(giverPawn);
+	            pawns.push(giveToPawn);
+            })
+
+            socket.on("event", (event) => {
+	            console.log("event", event)
+	            addEvent(event);
+            });
+
+            socket.on("refill", (newPawns) => {
+	            pawns = newPawns
+            });
+
+			let eventContainer = document.querySelector(".eventContainer");
+			function addEvent(event) {
+                eventContainer.innerHTML = `<div class="event">${event.eventText} at ${new Date(event.timestamp).toLocaleString(getLang())}</div>${eventContainer.innerHTML}`;
+				df_alt()
+            }
+
+			function moveHere() {
+				socket.emit("move", actionData);
+			}
+
+			function attackPawn() {
+				socket.emit("attack", actionData.targetPawnId);
+			}
+
+			function giveTo() {
+				socket.emit("give", actionData.targetPawnId);
+            }
+
+        </script>
+        <%- include("common/footer.ejs", { user }); %>
+    </body>
+</html>
