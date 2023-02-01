@@ -4,7 +4,7 @@ const PawnSchema = {
     position: Object,
     alive: {type: Boolean, default: true},
     health: {type: Number, default: 3},
-    actions: {type: Number, default: 1},
+    actions: {type: Number, default: 0},
     tint: Object,
     diedAt: Date,
     killedBy: String,

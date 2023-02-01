@@ -30,24 +30,44 @@ passport.deserializeUser(function(obj, done) {
 });
 
 const participants = [
-	"659398876960129025", // !?
-	"222694725487034369", // 3oF
-	"266098747849572352", // AnnoyingRains
-	"261228937206562817", // Catto
-	"490664749315653642", // Mitch
-	"295975431058751498", // laker
-	"659253543349387304", // MCV
-	"629028955646853141", // Mot
-	"539306837175042058", // Neatnik
-	"515645198626193418", // Nisha
-	"907324666710986764", // lolboi20
-	"485376328980365312", // NullCube
-	"453924399402319882", // Sharky
-	"264139669174878219", // Bye
-	"850273334486368276", // Thonk
-	"125644326037487616", // Trash
-	"708333380525228082"  // Vukky
+	"659398876960129025",
+	"222694725487034369",
+	"266098747849572352",
+	"261228937206562817",
+	"490664749315653642",
+	"295975431058751498",
+	"659253543349387304",
+	"629028955646853141",
+	"539306837175042058",
+	"515645198626193418",
+	"907324666710986764",
+	"485376328980365312",
+	"453924399402319882",
+	"264139669174878219",
+	"850273334486368276",
+	"125644326037487616",
+	"708333380525228082"
 ]
+
+const Oparticipants = {
+	"659398876960129025": "!?",
+	"222694725487034369": "3oF",
+	"266098747849572352": "AnnoyingRains",
+	"261228937206562817": "Catto",
+	"490664749315653642": "Mitch",
+	"295975431058751498": "laker",
+	"659253543349387304": "MCV",
+	"629028955646853141": "Mot",
+	"539306837175042058": "Neatnik",
+	"515645198626193418": "Nisha",
+	"907324666710986764": "lolboi20",
+	"485376328980365312": "NullCube",
+	"453924399402319882": "Sharky",
+	"264139669174878219": "Bye",
+	"850273334486368276": "Thonk",
+	"125644326037487616": "trash",
+	"708333380525228082": "Vukky"
+}
 
 const gridWidth = 35;
 const gridHeight = 25;
@@ -117,6 +137,46 @@ app.get("/auth/login", passport.authenticate("discord", {scope: scopes}))
 
 app.get("/auth/callback", passport.authenticate("discord", {failureRedirect: "/?loginFailure=true"}), (req, res) => {
 	res.redirect("/game");
+})
+
+app.post("/init", async (req, res) => {
+	if (!req.headers.admin || req.headers.admin !== process.env.ADMIN_SECRET) return res.status(401).end();
+	let Pawn = getPawn();
+	for (const id of participants) {
+		let pawn = new Pawn({
+			discordId: id,
+			username: Oparticipants[id],
+			position: {
+				x: Math.floor(Math.random() * gridWidth),
+				y: Math.floor(Math.random() * gridHeight)
+			},
+			alive: true,
+			health: 3,
+			actions: 0,
+			tint: {
+				r: Math.floor(Math.random() * 255),
+				g: Math.floor(Math.random() * 255),
+				b: Math.floor(Math.random() * 255)
+			}
+		})
+		await pawn.save();
+	}
+	res.json({success: true})
+})
+
+app.post("/randomizePositions", async (req, res) => {
+	if (!req.headers.admin || req.headers.admin !== process.env.ADMIN_SECRET) return res.status(401).end();
+	let Pawn = getPawn();
+	let pawns = await Pawn.find();
+	for (let pawn of pawns) {
+		pawn.position = {
+			x: Math.floor(Math.random() * gridWidth),
+			y: Math.floor(Math.random() * gridHeight)
+		}
+		await pawn.save();
+	}
+	io.emit("refill", pawns);
+	res.json({success: true})
 })
 
 app.get("/auth/logout", (req, res) => {

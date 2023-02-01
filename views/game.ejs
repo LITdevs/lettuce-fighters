@@ -32,7 +32,7 @@
                     </div>
                 </div>
             </div>
-            <div class="userBar">
+            <div class="userBar select-none">
                 <div class="card flex flex-row justify-between">
                     <% if (user === null || user.alive) {%>
                     <div class="health-display text-3xl align-middle">
@@ -44,12 +44,15 @@
                         <img src="/lettuce.png" alt="A lettuce" class="w-10 inline-block"><span class="font-bold text-xl"> x <span id="lettuceCount"><%=user?.actions || 0%></span></span>
                     </div>
                     <% } else { %>
-                        <span>Choose who you would like to help: </span>
-                        <select id="supremeCourtSelector">
+                    <div>
+                        <label for="supremeCourtSelector">Choose who you would like to help: </label>
+                        <select class="input-box" id="supremeCourtSelector">
 
                         </select>
+                        <button class="btn" onclick="subVote(document.querySelector('#supremeCourtSelector').value);">OK</button>
+                    </div>
                     <% } %>
-                    <div class="player-name-display text-xl font-bold align-middle">
+                    <div class="player-name-display text-xl font-bold align-middle" onclick="toggleShittyRangeDraw()">
                         Playing as <%=user?.username || "Nobody! You are a spectator."%>
                     </div>
                 </div>
@@ -75,11 +78,27 @@
         <script src="/socket.io/socket.io.js"></script>
         <% if (user && !user.alive) { %>
         <script>
+	        fetch("/api/pawns")
+		        .then(res => res.json())
+		        .then(data => {
+					data = data.filter(pawn => pawn.alive);
+			        data.forEach(pawn => {
+				        let option = document.createElement("option");
+                        option.value = pawn.discordId;
+                        option.innerText = pawn.username;
+                        document.getElementById("supremeCourtSelector").appendChild(option);
+			        })
+		        })
+
             document.getElementById("supremeCourtSelector").addEventListener("change", function() {
-                socket.emit("supremeCourt", this.value);
+                subVote(this.value);
             })
+
+            function subVote(vote) {
+                socket.emit("supremeCourt", vote);
+            }
         </script>
-        <% %>
+        <% } %>
         <script>
             if (!getCookie("tutorial")) {
                 document.querySelector("#tutorial").classList.remove("hidden");
@@ -97,7 +116,14 @@
 	        let startY;
 	        let startDistance;
 	        let currentDistance;
-			let shittyRangeDraw = false;
+            let shittyRangeDraw = !!getCookie("shittyRangeDraw");
+            let superShitRangeMode = false;
+			let selectedUser = "<%=user?.discordId%>";
+
+			function toggleShittyRangeDraw() {
+				shittyRangeDraw = !shittyRangeDraw;
+                setCookie("shittyRangeDraw", shittyRangeDraw);
+			}
 
 	        document.querySelector("#grid-container").addEventListener("mousewheel", function(e) {
 		        e.preventDefault();
@@ -202,39 +228,73 @@
                         <i class="fa-solid fa-heart${pawn.health >= 2 ? "" : "-broken"}"></i>
                         <i class="fa-solid fa-heart${pawn.health >= 3 ? "" : "-broken"}"></i>
 						`
-                        if (shittyRangeDraw) {
-	                        // Loop through all tiles and check if they are in range
-	                        for (let i = 0; i < numCellsX; i++) {
-		                        for (let j = 0; j < numCellsY; j++) {
-			                        if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 7.5) {
-				                        fill("#FFFFFF00")
-				                        stroke("#00FF00")
-				                        rect(gridX + (i * gridWidth / numCellsX),
-					                        gridY + (j * gridHeight / numCellsY),
-					                        gridWidth / numCellsX,
-					                        gridHeight / numCellsY);
-			                        }
-			                        if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 4.25) {
-				                        fill("#FFFFFF00")
-				                        stroke("#FF0000")
-				                        rect(gridX + (i * gridWidth / numCellsX),
-					                        gridY + (j * gridHeight / numCellsY),
-					                        gridWidth / numCellsX,
-					                        gridHeight / numCellsY);
-			                        }
-			                        if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 1.5) {
-				                        fill("#FFFFFF00")
-				                        stroke("#0000FF")
-				                        rect(gridX + (i * gridWidth / numCellsX),
-					                        gridY + (j * gridHeight / numCellsY),
-					                        gridWidth / numCellsX,
-					                        gridHeight / numCellsY);
-			                        }
-		                        }
-	                        }
-                        }
+
 					}
+
+			        if (shittyRangeDraw && selectedUser === pawn.discordId) {
+				        // Loop through all tiles and check if they are in range
+				        for (let i = 0; i < numCellsX; i++) {
+					        for (let j = 0; j < numCellsY; j++) {
+						        if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 7.5) {
+							        fill("#FFFFFF00")
+							        stroke("#00FF00")
+							        rect(gridX + (i * gridWidth / numCellsX),
+								        gridY + (j * gridHeight / numCellsY),
+								        gridWidth / numCellsX,
+								        gridHeight / numCellsY);
+						        }
+						        if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 4.25) {
+							        fill("#FFFFFF00")
+							        stroke("#FF0000")
+							        rect(gridX + (i * gridWidth / numCellsX),
+								        gridY + (j * gridHeight / numCellsY),
+								        gridWidth / numCellsX,
+								        gridHeight / numCellsY);
+						        }
+						        if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 1.5) {
+							        fill("#FFFFFF00")
+							        stroke("#0000FF")
+							        rect(gridX + (i * gridWidth / numCellsX),
+								        gridY + (j * gridHeight / numCellsY),
+								        gridWidth / numCellsX,
+								        gridHeight / numCellsY);
+						        }
+					        }
+				        }
+			        }
+
 			        renderPawn(pawn)
+                    if (superShitRangeMode) {
+	                    for (let i = 0; i < numCellsX; i++) {
+		                    for (let j = 0; j < numCellsY; j++) {
+			                    if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 7.5) {
+				                    fill("#FFFFFF00")
+				                    stroke("#00FF00")
+				                    rect(gridX + (i * gridWidth / numCellsX),
+					                    gridY + (j * gridHeight / numCellsY),
+					                    gridWidth / numCellsX,
+					                    gridHeight / numCellsY);
+			                    }
+			                    if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 4.25) {
+				                    fill("#FFFFFF00")
+				                    stroke("#FF0000")
+				                    rect(gridX + (i * gridWidth / numCellsX),
+					                    gridY + (j * gridHeight / numCellsY),
+					                    gridWidth / numCellsX,
+					                    gridHeight / numCellsY);
+			                    }
+			                    if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 1.5) {
+				                    fill("#FFFFFF00")
+				                    stroke("#0000FF")
+				                    rect(gridX + (i * gridWidth / numCellsX),
+					                    gridY + (j * gridHeight / numCellsY),
+					                    gridWidth / numCellsX,
+					                    gridHeight / numCellsY);
+			                    }
+		                    }
+	                    }
+                    }
+
 			        fill("#FFFFFF00")
 			        stroke("#FF0000")
 			        /*rect(gridX + (pawn.position.x * gridWidth / numCellsX),
@@ -360,6 +420,7 @@
 				if (tileX < 0 || tileX >= numCellsX || tileY < 0 || tileY >= numCellsY) return;
 
 				let occupier = pawns.find(pawn => pawn.position.x === tileX && pawn.position.y === tileY);
+				if (occupier) selectedUser = occupier.discordId;
 				if (occupier && occupier.discordId === pawn.discordId) return;
 				if (!occupier && distance <= 1.5) possibleActions.push("move");
 		        if (occupier && occupier.alive && distance <= 4.25) possibleActions.push("attack");

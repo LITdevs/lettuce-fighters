@@ -37,6 +37,28 @@ router.post("/refill", async (req: Request, res: Response) => {
             await pawn.save()
         }
     }
+
+    let supremeCourtPawns = pawns.filter(pawn => !pawn.alive);
+    // Count the number of votes for each pawn
+    let voteCount = {};
+    for (let pawn of supremeCourtPawns) {
+        if (voteCount[pawn.vote]) {
+            voteCount[pawn.vote] += 1;
+        } else {
+            voteCount[pawn.vote] = 1;
+        }
+    }
+
+    // Find all pawns with 3 or more votes
+    for (const votee of Object.keys(voteCount)) {
+        if (voteCount[votee] < 3) continue;
+        let voteePawn = await Pawn.findOne({discordId: votee})
+        voteePawn.actions += 1;
+        await voteePawn.save();
+    }
+
+    pawns = await Pawn.find({});
+
     let pawnList = pawns.map(pawn => {
         return {
             position: pawn.position,
@@ -50,8 +72,9 @@ router.post("/refill", async (req: Request, res: Response) => {
             killedBy: pawn.killedBy
         }
     })
+
     io.emit("refill", pawnList);
-    res.json(pawnList)
+    res.json({pawnList, voteCount})
 })
 
 router.get("/events", async (req: Request, res: Response) => {
@@ -202,6 +225,19 @@ io.on("connection", (socket) => {
         io.emit("give", {giveToPawn, giverPawn: pawn})
 
         await event.save();
+    })
+
+    socket.on("supremeCourt", async (voteId) => {
+        let Pawn = getPawn();
+        // @ts-ignore
+        let pawn = await Pawn.findOne({discordId: socket.request.user.discordId})
+        if (!pawn) return;
+
+        if (pawn.alive) return;
+
+        pawn.vote = voteId;
+
+        await pawn.save();
     })
 })
 
