@@ -52,8 +52,10 @@
                         <button class="btn" onclick="subVote(document.querySelector('#supremeCourtSelector').value);">OK</button>
                     </div>
                     <% } %>
-                    <div class="player-name-display text-xl font-bold align-middle" onclick="toggleShittyRangeDraw()">
+                    <div class="player-name-display text-xl font-bold align-middle">
                         Playing as <%=user?.username || "Nobody! You are a spectator."%>
+                        <i id="rangeButton" class="fa-solid fa-bullseye p-2 hover:bg-tertiary rounded-lg enabled" title="Toggle range" onclick="toggleShittyRangeDraw()"></i>
+                        <i id="notificationButton" class="fa-solid fa-bell p-2 hover:bg-tertiary rounded-lg enabled" title="Toggle notifications" onclick="toggleNotifications()"></i>
                     </div>
                 </div>
             </div>
@@ -100,6 +102,30 @@
         </script>
         <% } %>
         <script>
+            let notifications = getCookie("notifications") === "true";
+            async function toggleNotifications() {
+                if (!notifications) {
+                    let permission = await Notification.requestPermission()
+                    notifications = permission == "granted"
+                    setCookie("notifications", permission == "granted")
+                    document.getElementById("notificationButton").classList.toggle("fa-bell")
+                    document.getElementById("notificationButton").classList.toggle("fa-bell-slash")
+                    document.getElementById("notificationButton").classList.add("enabled")
+                } else {
+                    notifications = false
+                    setCookie("notifications", false)
+                    document.getElementById("notificationButton").classList.toggle("fa-bell")
+                    document.getElementById("notificationButton").classList.toggle("fa-bell-slash")
+                    document.getElementById("notificationButton").classList.remove("enabled")
+                }
+            }
+
+            if (!notifications) {
+                document.getElementById("notificationButton").classList.toggle("fa-bell")
+                document.getElementById("notificationButton").classList.toggle("fa-bell-slash")
+                document.getElementById("notificationButton").classList.remove("enabled")
+            }
+
             if (!getCookie("tutorial")) {
                 document.querySelector("#tutorial").classList.remove("hidden");
             }
@@ -116,14 +142,19 @@
 	        let startY;
 	        let startDistance;
 	        let currentDistance;
-            let shittyRangeDraw = !!getCookie("shittyRangeDraw");
+            let shittyRangeDraw = getCookie("shittyRangeDraw") === "true";
             let superShitRangeMode = false;
 			let selectedUser = "<%=user?.discordId%>";
 
 			function toggleShittyRangeDraw() {
 				shittyRangeDraw = !shittyRangeDraw;
                 setCookie("shittyRangeDraw", shittyRangeDraw);
+                document.getElementById("rangeButton").classList.toggle("enabled")
 			}
+
+            if (!shittyRangeDraw) {
+                document.getElementById("rangeButton").classList.remove("enabled")
+            }
 
 	        document.querySelector("#grid-container").addEventListener("mousewheel", function(e) {
 		        e.preventDefault();
@@ -566,6 +597,9 @@
 
             socket.on("event", (event) => {
 	            console.log("event", event)
+                if (notifications) {
+                    new Notification('Lettuce Fighters', { body: event.eventText });
+                }
 	            addEvent(event);
             });
 

@@ -62,3 +62,7 @@ body {
 .event {
     @apply bg-tertiary text-light rounded-[10px] shadow-lg p-1 m-2;
 }
+
+.enabled {
+    @apply bg-tertiary;
+}

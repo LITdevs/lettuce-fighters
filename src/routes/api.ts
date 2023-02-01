@@ -99,7 +99,10 @@ io.on("connection", (socket) => {
     }
     socket.on("disconnect", function(){
         // @ts-ignore
-        connectedClients[socket.request.user.discordId] -= 1;
+        if (socket.request.isAuthenticated()) {
+            // @ts-ignore
+            connectedClients[socket.request.user.discordId] -= 1;
+        }
     });
     socket.on("move", async (data) => {
         // @ts-ignore
@@ -259,6 +262,10 @@ io.on("connection", (socket) => {
             if (connectedClients[client] >= 1) connectedClientsCount++
         }
         socket.emit("connectionCount", connectedClientsCount)
+        // @ts-ignore
+        /*if (socket.request.user.discordId === "125644326037487616") {
+            socket.emit("custom", connectedClients)
+        }*/
     })
 })
 
