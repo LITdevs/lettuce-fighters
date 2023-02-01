@@ -87,7 +87,20 @@ import { getIo, gridWidth, gridHeight } from "../index";
 
 let io = getIo();
 
+let connectedClients = {};
+
 io.on("connection", (socket) => {
+    // @ts-ignore
+    if (socket.request.isAuthenticated()) {
+        // @ts-ignore
+        if (!connectedClients[socket.request.user.discordId]) connectedClients[socket.request.user.discordId] = 0;
+        // @ts-ignore
+        connectedClients[socket.request.user.discordId] += 1;
+    }
+    socket.on("disconnect", function(){
+        // @ts-ignore
+        connectedClients[socket.request.user.discordId] -= 1;
+    });
     socket.on("move", async (data) => {
         // @ts-ignore
         if (!socket.request.isAuthenticated()) return;
@@ -238,6 +251,14 @@ io.on("connection", (socket) => {
         pawn.vote = voteId;
 
         await pawn.save();
+    })
+
+    socket.on("connectionCount", async () => {
+        let connectedClientsCount = 0
+        for (const client of Object.keys(connectedClients)) {
+            if (connectedClients[client] >= 1) connectedClientsCount++
+        }
+        socket.emit("connectionCount", connectedClientsCount)
     })
 })
 

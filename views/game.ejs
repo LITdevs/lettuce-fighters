@@ -163,6 +163,18 @@
                             addEvent(event)
                         })
                     })
+                document.querySelector(".nav").innerHTML += `<div class="mr-2">
+<span>Users with page open: <span id="connectedClients">Loading...</span></span>
+</div>`
+
+                socket.emit("connectionCount", "ping")
+                setInterval(() => {
+                    socket.emit("connectionCount", "ping")
+                }, 5000)
+
+                socket.on("connectionCount", (count) => {
+                    document.getElementById("connectedClients").innerHTML = count
+                })
 	        }
 
 
