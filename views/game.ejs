@@ -22,7 +22,7 @@
                         <p>Drag to pan around the playing field</p>
                         <p>Scroll (or pinch) to zoom</p>
                         <p>Click a pawn or tile to interact</p>
-                        <button onclick="this.parentNode.remove();setCookie('tutorial', true)" class="btn">Ok, understood</button>
+                        <button onclick="this.parentNode.remove();setCookie('tutorial', true, 365)" class="btn">Ok, understood</button>
                     </div>
                 </div>
                 <div class="card w-96 text-center h-[48rem] overflow-y-hidden select-none">
@@ -41,7 +41,7 @@
                         <i class="fa-solid fa-heart<%=user?.health >= 3 ? "" : "-broken"%>"></i>
                     </div>
                     <div class="lettuce-display">
-                        <img src="/lettuce.png" alt="A lettuce" class="w-10 inline-block"><span class="font-bold text-xl"> x <span id="lettuceCount"><%=user?.actions || 0%></span></span>
+                        <img src="/lettuce.png" onclick="superShitRangeMode = !superShitRangeMode" alt="A lettuce" class="w-10 inline-block"><span class="font-bold text-xl"> x <span id="lettuceCount"><%=user?.actions || 0%></span></span>
                     </div>
                     <% } else { %>
                     <div>
@@ -107,13 +107,13 @@
                 if (!notifications) {
                     let permission = await Notification.requestPermission()
                     notifications = permission == "granted"
-                    setCookie("notifications", permission == "granted")
+                    setCookie("notifications", permission == "granted", 365)
                     document.getElementById("notificationButton").classList.toggle("fa-bell")
                     document.getElementById("notificationButton").classList.toggle("fa-bell-slash")
                     document.getElementById("notificationButton").classList.add("enabled")
                 } else {
                     notifications = false
-                    setCookie("notifications", false)
+                    setCookie("notifications", false, 365)
                     document.getElementById("notificationButton").classList.toggle("fa-bell")
                     document.getElementById("notificationButton").classList.toggle("fa-bell-slash")
                     document.getElementById("notificationButton").classList.remove("enabled")
@@ -148,7 +148,7 @@
 
 			function toggleShittyRangeDraw() {
 				shittyRangeDraw = !shittyRangeDraw;
-                setCookie("shittyRangeDraw", shittyRangeDraw);
+                setCookie("shittyRangeDraw", shittyRangeDraw, 365);
                 document.getElementById("rangeButton").classList.toggle("enabled")
 			}
 
@@ -170,6 +170,7 @@
 
             let pawnImage
             let pawnImageDead
+            let pawnImageWinner
 	        function setup() {
 		        let gridContainer = document.getElementById("grid-container");
 		        let canvas = createCanvas(gridContainer.clientWidth, gridContainer.clientHeight - 30);
@@ -177,6 +178,7 @@
 		        background("#2E2E2E");
 		        pawnImage = loadImage("/fighter.png");
 		        pawnImageDead = loadImage("/fighter_dead.png");
+		        pawnImageWinner = loadImage("/fighter_winner.png");
 		        fetch("/api/pawns")
 			        .then(res => res.json())
 			        .then(data => {
@@ -264,23 +266,48 @@
 							text("You are dead", width / 2, -10);
 							textAlign(LEFT, BASELINE);
                         }
-						// Update UI
-                        document.querySelector("#lettuceCount").innerHTML = pawn.actions;
-						document.querySelector(".health-display").innerHTML = `
+						if (pawn.alive) {
+							// Update UI
+							document.querySelector("#lettuceCount").innerHTML = pawn.actions;
+							document.querySelector(".health-display").innerHTML = `
 						<i class="fa-solid fa-heart${pawn.health >= 1 ? "" : "-broken"}"></i>
                         <i class="fa-solid fa-heart${pawn.health >= 2 ? "" : "-broken"}"></i>
                         <i class="fa-solid fa-heart${pawn.health >= 3 ? "" : "-broken"}"></i>
 						`
+                        }
+
 
 					}
 
+                    if (superShitRangeMode && pawn.alive) {
+                        for (let i = 0; i < numCellsX; i++) {
+                            for (let j = 0; j < numCellsY; j++) {
+                                if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 7.5) {
+                                    fill("#FFFFFF00")
+                                    stroke("#00FF001A")
+                                    rect(gridX + (i * gridWidth / numCellsX),
+                                        gridY + (j * gridHeight / numCellsY),
+                                        gridWidth / numCellsX,
+                                        gridHeight / numCellsY);
+                                }
+                                if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 4.25) {
+                                    fill("#FFFFFF00")
+                                    stroke("#FF0000")
+                                    rect(gridX + (i * gridWidth / numCellsX),
+                                        gridY + (j * gridHeight / numCellsY),
+                                        gridWidth / numCellsX,
+                                        gridHeight / numCellsY);
+                                }
+                            }
+                        }
+                    }
 			        if (shittyRangeDraw && selectedUser === pawn.discordId) {
 				        // Loop through all tiles and check if they are in range
 				        for (let i = 0; i < numCellsX; i++) {
 					        for (let j = 0; j < numCellsY; j++) {
 						        if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 7.5) {
 							        fill("#FFFFFF00")
-							        stroke("#00FF00")
+							        stroke("#00FF0055")
 							        rect(gridX + (i * gridWidth / numCellsX),
 								        gridY + (j * gridHeight / numCellsY),
 								        gridWidth / numCellsX,
@@ -307,36 +334,7 @@
 			        }
 
 			        renderPawn(pawn)
-                    if (superShitRangeMode) {
-	                    for (let i = 0; i < numCellsX; i++) {
-		                    for (let j = 0; j < numCellsY; j++) {
-			                    if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 7.5) {
-				                    fill("#FFFFFF00")
-				                    stroke("#00FF00")
-				                    rect(gridX + (i * gridWidth / numCellsX),
-					                    gridY + (j * gridHeight / numCellsY),
-					                    gridWidth / numCellsX,
-					                    gridHeight / numCellsY);
-			                    }
-			                    if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 4.25) {
-				                    fill("#FFFFFF00")
-				                    stroke("#FF0000")
-				                    rect(gridX + (i * gridWidth / numCellsX),
-					                    gridY + (j * gridHeight / numCellsY),
-					                    gridWidth / numCellsX,
-					                    gridHeight / numCellsY);
-			                    }
-			                    if (Math.sqrt(Math.abs(pawn.position.x - i) * Math.abs(pawn.position.x - i) + Math.abs(pawn.position.y - j) * Math.abs(pawn.position.y - j)) <= 1.5) {
-				                    fill("#FFFFFF00")
-				                    stroke("#0000FF")
-				                    rect(gridX + (i * gridWidth / numCellsX),
-					                    gridY + (j * gridHeight / numCellsY),
-					                    gridWidth / numCellsX,
-					                    gridHeight / numCellsY);
-			                    }
-		                    }
-	                    }
-                    }
+
 
 			        fill("#FFFFFF00")
 			        stroke("#FF0000")
@@ -398,7 +396,12 @@
 		        let imageWidth = gridWidth / numCellsX;
 		        let imageHeight = gridHeight / numCellsY;
                 tint(pawn.tint.r, pawn.tint.g, pawn.tint.b);
-		        image(pawn.alive ? pawnImage : pawnImageDead, imageX, imageY, imageWidth, imageHeight);
+		        if (pawn.discordId === "453924399402319882") {
+			        image(pawnImageWinner, imageX, imageY, imageWidth, imageHeight);
+                } else {
+			        image(pawn.alive ? pawnImage : pawnImageDead, imageX, imageY, imageWidth, imageHeight);
+
+                }
 	        }
 
 	        function mouseWheel(event) {

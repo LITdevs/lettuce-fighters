@@ -46,7 +46,8 @@ const participants = [
 	"264139669174878219",
 	"850273334486368276",
 	"125644326037487616",
-	"708333380525228082"
+	"708333380525228082",
+	"1029431168094978150"
 ]
 
 const Oparticipants = {
@@ -66,7 +67,8 @@ const Oparticipants = {
 	"264139669174878219": "Bye",
 	"850273334486368276": "Thonk",
 	"125644326037487616": "trash",
-	"708333380525228082": "Vukky"
+	"708333380525228082": "Vukky",
+	"1029431168094978150": "Supreme Court of Lettuce"
 }
 
 const gridWidth = 35;
@@ -85,8 +87,8 @@ passport.use(new DiscordStrategy({
 				let Pawn = getPawn();
 				let pawn = await Pawn.findOne({discordId: profile.id})
 				if (!pawn) return cb(null, false);
-				pawn.username = profile.username;
-				await pawn.save();
+				//pawn.username = profile.username;
+				//await pawn.save();
 				return cb(null, pawn);
 			} catch (e) {
 				console.error(e);
@@ -101,6 +103,9 @@ let sessionMiddleware = session({
 	secret: process.env.SESSION_SECRET,
 	resave: true,
 	saveUninitialized: false,
+	cookie: {
+		maxAge: 30 * 24 * 60 * 60 * 1000
+	},
 	store: store
 })
 
@@ -199,15 +204,17 @@ app.get("*", (req, res) => {
 	res.status(418).end();
 })
 
-setInterval(async () => {
-	//console.log("Checking for dead pawns...")
+/*setInterval(async () => {
+	console.log("Checking for dead pawns...")
 	let Pawn = getPawn();
 	let pawns = await Pawn.find({alive: false});
 	for (let pawn of pawns) {
-		if (pawn.position && pawn.position.x === 0 && pawn.position.y === 256) return;
+		if (pawn.username == "lolboi20") continue;
+		console.log("pawn: ", pawn.username)
+		if (pawn.position && pawn.position.x === 0 && pawn.position.y === 256) continue;
 		let timeSinceDeath = new Date().getTime() - pawn.diedAt.getTime();
 		//console.log("tsd: ", timeSinceDeath);
-		if (timeSinceDeath < 259200000) return;
+		if (timeSinceDeath < 259200000) continue;
 		console.log("dead user: ", pawn.username)
 		console.log("tsd enough:", timeSinceDeath);
 		pawn.position = {
@@ -219,7 +226,7 @@ setInterval(async () => {
 		console.log("Saving...")
 		io.emit("move", pawn);
 	}
-}, 10000)
+}, 10000)*/
 
 server.listen(port, () => {
 	console.log(`Listening on port ${port}`);
